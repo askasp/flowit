@@ -52,9 +52,11 @@ defmodule FlowitWeb.CanvasLive do
 
   @impl true
   def handle_event("add_view", %{"name" => name, "dispatched_by_id" => dispatched_by_id}, socket) do
-
-    dispatched_by_component = Enum.find(socket.assigns.flow["components"], fn component -> dispatched_by_id == component["gui_id"] end)
-    |> fn comp -> %{"name" => comp["name"], "type" => comp["type"]} end.()
+    dispatched_by_component =
+      Enum.find(socket.assigns.flow["components"], fn component ->
+        dispatched_by_id == component["gui_id"]
+      end)
+      |> (fn comp -> %{"name" => comp["name"], "type" => comp["type"]} end).()
 
     component = [
       %{
@@ -87,9 +89,11 @@ defmodule FlowitWeb.CanvasLive do
         },
         socket
       ) do
-
-    dispatched_by_component = Enum.find(socket.assigns.flow["components"], fn component -> dispatched_by_id == component["gui_id"] end)
-    |> fn comp -> %{"name" => comp["name"], "type" => comp["type"]} end.()
+    dispatched_by_component =
+      Enum.find(socket.assigns.flow["components"], fn component ->
+        dispatched_by_id == component["gui_id"]
+      end)
+      |> (fn comp -> %{"name" => comp["name"], "type" => comp["type"]} end).()
 
     component = [
       %{
@@ -117,10 +121,13 @@ defmodule FlowitWeb.CanvasLive do
         socket
       ) do
 
-    dispatched_by_component = Enum.find(socket.assigns.flow["components"], fn component -> dispatched_by_id == component["gui_id"] end)
-    |> fn comp -> %{"name" => comp["name"], "type" => comp["type"]} end.()
+    dispatched_by_component =
+      Enum.find(socket.assigns.flow["components"], fn component ->
+        dispatched_by_id == component["gui_id"]
+      end)
+      |> (fn comp -> %{"name" => comp["name"], "type" => comp["type"]} end).()
 
-    component = [
+    event_component =
       %{
         "type" => "event",
         "name" => event,
@@ -128,9 +135,24 @@ defmodule FlowitWeb.CanvasLive do
         "dispatched_by_component" => [dispatched_by_component],
         "event_params" => event_params,
         "gui_id" => UUID.uuid1(),
-        "aggregate" => aggregate,
+        "aggregate" => aggregate
       }
-    ]
+
+      component =
+      # case Enum.find(socket.assigns.flow["components"], fn comp -> comp["type"] == "aggregate" && comp["name"] == aggregate end) do
+        # nil ->
+          [event_component,
+           	%{"type" => "aggregate",
+           	"name" => aggregate,
+           	"dispatched_by_component" => [event_component]
+           	}
+           ]
+       # 	x ->
+       #   	IO.puts "existing component is"
+       #   	IO.inspect x
+
+       #   	[event_component, Map.put(x, "dispatched_by_component", x["dispatched_by_component"] ++ event_component)]
+       # end
 
     update_flow(component, socket)
   end
@@ -140,12 +162,12 @@ defmodule FlowitWeb.CanvasLive do
         "add_read_model",
         %{"read_model" => read_model, "dispatched_by_id" => dispatched_by_id},
         socket
-
       ) do
-
-    dispatched_by_component = Enum.find(socket.assigns.flow["components"], fn component -> dispatched_by_id == component["gui_id"] end)
-    |> fn comp -> %{"name" => comp["name"], "type" => comp["type"]} end.()
-
+    dispatched_by_component =
+      Enum.find(socket.assigns.flow["components"], fn component ->
+        dispatched_by_id == component["gui_id"]
+      end)
+      |> (fn comp -> %{"name" => comp["name"], "type" => comp["type"]} end).()
 
     component = [
       %{
@@ -153,7 +175,7 @@ defmodule FlowitWeb.CanvasLive do
         "name" => read_model,
         "dispatched_by_component" => [dispatched_by_component],
         "dispatched_by_id" => dispatched_by_id,
-        "gui_id" => UUID.uuid1(),
+        "gui_id" => UUID.uuid1()
       }
     ]
 
@@ -166,8 +188,11 @@ defmodule FlowitWeb.CanvasLive do
         %{"processer" => processer, "dispatched_by_id" => dispatched_by_id},
         socket
       ) do
-    dispatched_by_component = Enum.find(socket.assigns.flow["components"], fn component -> dispatched_by_id == component["gui_id"] end)
-    |> fn comp -> %{"name" => comp["name"], "type" => comp["type"]} end.()
+    dispatched_by_component =
+      Enum.find(socket.assigns.flow["components"], fn component ->
+        dispatched_by_id == component["gui_id"]
+      end)
+      |> (fn comp -> %{"name" => comp["name"], "type" => comp["type"]} end).()
 
     component = [
       %{
@@ -175,7 +200,7 @@ defmodule FlowitWeb.CanvasLive do
         "name" => processer,
         "dispatched_by_id" => dispatched_by_id,
         "dispatched_by_component" => [dispatched_by_component],
-        "gui_id" => UUID.uuid1(),
+        "gui_id" => UUID.uuid1()
       }
     ]
 
@@ -183,84 +208,332 @@ defmodule FlowitWeb.CanvasLive do
   end
 
   def handle_event("generate_files", %{"app_name" => app_name}, socket) do
+    app_name = "FlowitTest"
+    flow = socket.assigns.flows |> Map.values() |> Enum.at(0)
 
-  	 flow = socket.assigns.flows |> Map.values  |> Enum.at(0)
-     merge_dispatched_by  =
-     flow["components"]
-     |> Enum.reduce(%{}, fn component, acc ->
-       case Map.get(acc, component["name"]) do
-         nil ->
-           Map.put(acc, component["name"], component)
+    merge_dispatched_by =
+      flow["components"]
+      |> Enum.reduce(%{}, fn component, acc ->
+        case Map.get(acc, component["name"]) do
+          nil ->
+            Map.put(acc, component["name"], component)
 
-         x -> disp_by_name = nil_to_empty_array(x["dispatched_by_component"]) ++ component["dispatched_by_component"]
-         			new_comp = Map.put(component, "dispatched_by_component", disp_by_name)
-         			Map.put(acc, component["name"], new_comp)
+          x ->
+            IO.puts "prining a round"
+            IO.inspect x["name"]
+            IO.inspect x["type"]
+            IO.inspect x["dispatched_by_component"]
+
+            IO.inspect "component is"
+            IO.inspect component["dispatched_by_component"]
+            IO.inspect component
+
+
+            disp_by_name = nil_to_empty_array(x["dispatched_by_component"]) ++ component["dispatched_by_component"]
+           		new_comp = Map.put(component, "dispatched_by_component", disp_by_name)
+           		new_comp = case component["type"] do
+             		"command" -> merged_command_params = Map.merge(component["command_params"], x["command_params"])
+             								 Map.put(new_comp, "command_params", merged_command_params)
+             		"event" -> merged_event_params = Map.merge(component["event_params"], x["event_params"])
+             								 Map.put(new_comp, "event_params", merged_event_params)
+
+
+             	  _ -> new_comp
+             	  end
+
+            	Map.put(acc, component["name"], new_comp)
         end
-        end)
+      end)
 
-     components_with_dispatched =
-     Map.values(merge_dispatched_by)
-     |> Enum.reduce(merge_dispatched_by, fn component, acc ->
+    components_with_dispatched =
+      Map.values(merge_dispatched_by)
+      |> Enum.reduce(merge_dispatched_by, fn component, acc ->
         components_dispatched_by_me =
-        Enum.filter(Map.values(merge_dispatched_by), fn comp -> Enum.member?(Enum.map(comp["dispatched_by_component"], fn comp -> comp["name"] end), component["name"]) end)
-        |> Enum.map(fn full_comp -> %{"name" => full_comp["name"], "type" => full_comp["type"]} end )
+          Enum.filter(Map.values(merge_dispatched_by), fn comp ->
+            Enum.member?(
+              Enum.map(comp["dispatched_by_component"], fn comp -> comp["name"] end),
+              component["name"]
+            )
+          end)
+          # |> Enum.map(fn full_comp ->
+          #   %{"name" => full_comp["name"], "type" => full_comp["type"]}
+          # end)
 
-        updated_comp = Map.get(acc, component["name"])
-        |> Map.put("dispatches", components_dispatched_by_me)
+        updated_comp =
+          Map.get(acc, component["name"])
+          |> Map.put("dispatches", components_dispatched_by_me)
+
         Map.put(acc, component["name"], updated_comp)
-        end)
+      end)
 
-
-    IO.inspect "components with dispatched by me"
-    IO.inspect components_with_dispatched
+    IO.inspect("components with dispatched by me")
+    IO.inspect(components_with_dispatched)
 
     id = UUID.uuid1()
 
-    res = File.mkdir("priv/static/boilerplates/#{id}")
-    res = File.mkdir("priv/static/boilerplates/#{id}/views")
-    res = File.mkdir("priv/static/boilerplates/#{id}/commands")
-    res = File.mkdir("priv/static/boilerplates/#{id}/events")
-    res = File.mkdir("priv/static/boilerplates/#{id}/aggregates")
-    res = File.mkdir("priv/static/boilerplates/#{id}/read_models")
-    res = File.mkdir("priv/static/boilerplates/#{id}/processes")
+    res = File.mkdir_p("#{id}/flowit_scaffold")
+    res = File.mkdir_p("#{id}/flowit_scaffold/views")
+    res = File.mkdir_p("#{id}/flowit_scaffold/commands")
+    res = File.mkdir_p("#{id}/flowit_scaffold/events")
+    res = File.mkdir_p("#{id}/flowit_scaffold/aggregates")
+    res = File.mkdir_p("#{id}/flowit_scaffold/read_models")
+    res = File.mkdir_p("#{id}/flowit_scaffold/processes")
+    res = File.mkdir_p("#{id}/flowit_scaffold/base")
+
+    generate_base(id, app_name)
+    generate_aggregate_macro(id)
+    generate_read_model_macro(id)
+    generate_supervisor(id, Map.values(components_with_dispatched))
+
 
     components_with_dispatched
-    |> Map.values
+    |> Map.values()
     |> Enum.each(fn comp ->
+      IO.puts("comp is")
+      IO.inspect(comp)
+      file_name = comp["name"]
+
       case comp["type"] do
-        "view" -> File.write("priv/static/boilerplates/#{id}/views/#{comp['name']}",
-        """
-        	defmodule FlowitScaffold do
-          	use #{app_name}Web, :live_view
-         end
-        """)
-       _ -> nil
-       end
-       end)
+        "view" -> generate_view_file(app_name, id, file_name,comp)
+        "command" -> generate_command_file(app_name, id, file_name, comp)
+        "aggregate" -> genereate_aggregates(app_name, id, file_name, comp)
+        "event" -> generate_event_file(app_name, id, file_name, comp)
+        "read_model" -> generate_read_model_file(app_name, id, file_name, comp)
+        _ -> nil
+      end
+    end)
 
+    res = System.cmd("zip", ["-r", "priv/static/boilerplates/#{id}.zip", "#{id}/flowit_scaffold/"])
 
-
-    id = UUID.uuid1()
-    res = File.mkdir("priv/static/boilerplates")
-    IO.inspect(res)
-    File.write("priv/static/boilerplates/#{id}.csv", "hei")
-    {:noreply, socket |> redirect(to: "/boilerplates/#{id}.csv")}
+    System.cmd("cp", ["-rf", "#{id}/flowit_scaffold", "/home/ask/delme/flowit_test/lib/"])
+    # File.cp_r("#{id}/flowit_scaffold/*", "/home/ask/delme/flowit_test/lib/flowit_scaffold/")
+    # File.cp_
+    {:noreply, socket |> redirect(to: "/boilerplates/#{id}.zip")}
   end
+
+
+
+	defp generate_read_model_file(app_name, id, file_name, comp) do
+
+            events =
+            	comp["dispatched_by_component"]
+            	|> Enum.filter(fn disp_comp -> disp_comp["type"] == "event" end)
+            	|> Enum.map(fn event ->
+              	"""
+              	def handle_event({%FlowitScaffold.Event.#{Macro.camelize(event["name"])}{} = event, metadata}) do
+                			state = get(event.stream_id) # Change this to whichever id you have on your read model
+                			new_state = state
+    									update_read_model_and_bookmark(event.stream_id, new_state, metadata)
+    						end
+
+    						"""
+    						end)
+          File.write!("#{id}/flowit_scaffold/read_models/#{file_name}.ex", """
+          defmodule FlowitScaffold.ReadModel.#{Macro.camelize(file_name)} do
+            use FlowitScaffold.ReadModel
+
+            #{events}
+
+						# catch all
+            def handle_event({_, metadata}), do: update_bookmark(metadata)
+            end
+          """)
+
+      end
+  
+
+
+  defp generate_event_file(app_name, id, file_name, comp) do
+      		event_params = comp["event_params"] |> String.split(" ") |> Enum.map(fn x -> String.to_atom(x) end) |> Enum.filter(fn x ->  x != :"" end)
+
+          params =
+          case length(event_params) do
+            0 -> [:stream_id]
+            _ -> [:stream_id | event_params]
+          end
+          File.write!("#{id}/flowit_scaffold/events/#{file_name}.ex", """
+          defmodule FlowitScaffold.Event.#{Macro.camelize(file_name)} do
+            @derive Jason.Encoder
+           defstruct #{inspect(params)}
+          end
+          """
+          )
+  end
+
+
+
+
+  defp genereate_aggregates(_app_name, id, file_name, comp) do
+          executes = Enum.map(comp["dispatched_by_component"], fn event ->
+              [command] = event["dispatched_by_component"]
+
+          """
+          def execute(%Command.#{Macro.camelize(command["name"])}{} = cmd, state) do
+            {:ok, %Event.#{Macro.camelize(event["name"])}{stream_id: cmd.stream_id} }
+          end
+
+          def apply_event(old_state, %Event.#{Macro.camelize(event["name"])}{} = event) do
+						# Make the aggregate state a list of all events in scaffold. Can be used for simple vlaidation on whether an event exists
+						case old_state do
+  						nil -> [event]
+  						x -> x ++ [event]
+  						end
+          end
+
+
+          """
+
+          end)
+
+          File.write!("#{id}/flowit_scaffold/aggregates/#{file_name}.ex", """
+          defmodule FlowitScaffold.Aggregate.#{Macro.camelize(file_name)} do
+            use FlowitScaffold.Aggregate
+            alias FlowitScaffold.Event
+            alias FlowitScaffold.Command
+
+
+            #{executes}
+       		end
+            """
+            )
+			end
+
+
+	defp generate_command_file(app_name,id,file_name,comp) do
+          dispatching_event = comp["dispatches"] |> Enum.find(fn x -> x["type"] == "event" end)
+          aggregate = dispatching_event["aggregate"]
+
+      		command_params = comp["command_params"] |> String.split(" ") |> Enum.map(fn x -> String.to_atom(x) end) |> Enum.filter(fn x ->  x != :"" end)
+          params =
+          case length(command_params) do
+            0 -> [:stream_id]
+            _ -> [:stream_id | command_params]
+          end
+
+         
+          File.write!("#{id}/flowit_scaffold/commands/#{file_name}.ex", """
+          defmodule FlowitScaffold.Command.#{Macro.camelize(file_name)} do
+            @derive Jason.Encoder
+           defstruct #{inspect(params)}
+
+            defimpl FlowitScaffold.CommandDispatcher, for: FlowitScaffold.Command.#{Macro.camelize(file_name)} do
+              def dispatch(command) do
+                FlowitScaffold.Aggregate.#{Macro.camelize(aggregate)}.execute(command)
+              end
+            end
+       end
+            """
+          )
+      end
+
+  defp generate_view_file(app_name, id, file_name, comp) do
+		 	subscribing_read_models_mount =
+            Enum.filter(comp["dispatched_by_component"], fn x -> x["type"] == "read_model" end)
+            |> Enum.map(fn x -> x["name"] end)
+            |> Enum.map(fn rm_name ->
+              """
+              	#{rm_name} = FlowitScaffold.ReadModel.#{Macro.camelize(rm_name)}.get_all()
+              	:ok = FlowitScaffold.ReadModel.#{Macro.camelize(rm_name)}.subscribe_to_all()
+              	socket = assign(socket, #{rm_name}: #{rm_name})
+              """
+            end)
+
+
+          subscribing_read_models_handle_info =
+            Enum.filter(comp["dispatched_by_component"], fn x -> x["type"] == "read_model" end)
+            |> Enum.map(fn x -> x["name"] end)
+            |> Enum.map(fn rm_name ->
+              """
+              def handle_info({"Elixir.FlowitScaffold.ReadModel.#{Macro.camelize(rm_name)}", id, state}, socket ) do
+               new_read_model_state= Map.put(socket.assigns["#{rm_name}"], id, state)
+                socket = assign(socket, "#{rm_name}", new_read_model_state)
+                {:noreply, socket}
+              end
+
+             """
+            end)
+
+
+          subscribing_read_models_data =
+            Enum.filter(comp["dispatched_by_component"], fn x -> x["type"] == "read_model" end)
+            |> Enum.map(fn x -> x["name"] end)
+            |> Enum.map(fn rm_name ->
+              """
+              <h2 class="font-xl"> #{Macro.camelize(rm_name)} </h2>
+              <%= @#{rm_name} |> Jason.encode! %>
+
+             """
+            end)
+
+          dispatching_commands_ui=
+            Enum.filter(comp["dispatches"], fn x -> x["type"] == "command" end)
+            |> Enum.map(fn x -> x["name"] end)
+            |> Enum.map(fn command_name ->
+              """
+              <button class="mt-5 btn btn-primary" phx-click="#{command_name}"> #{command_name} </button>
+
+              """
+              end)
+
+           dispatching_commands_handlers =
+            Enum.filter(comp["dispatches"], fn x -> x["type"] == "command" end)
+            |> Enum.map(fn x -> x["name"] end)
+            |> Enum.map(fn command_name ->
+              """
+              def handle_event("#{command_name}", _, socket) do
+                :ok = %FlowitScaffold.Command.#{Macro.camelize(command_name)}{stream_id: UUID.uuid1()}
+                |> FlowitScaffold.CommandDispatcher.dispatch()
+                {:noreply, socket}
+                end
+
+              """
+              end)
+
+          File.write!("#{id}/flowit_scaffold/views/#{file_name}.ex", """
+          defmodule FlowitScaffold.View.#{Macro.camelize(file_name)} do
+            use #{app_name}Web, :live_view
+
+            def mount(_params, %{}, socket) do
+              #{subscribing_read_models_mount}
+              {:ok, socket}
+            end
+
+            #{dispatching_commands_handlers}
+
+            #{subscribing_read_models_handle_info}
+
+            def render(assigns) do
+              ~H\"""
+              <h1 class="text-2xl"> #{Macro.camelize(file_name)} </h1>
+
+              #{subscribing_read_models_data}
+
+
+              #{dispatching_commands_ui}
+              \"""
+
+            end
+          end
+          """)
+
+  end
+
+
+
+
 
   defp nil_to_empty_array(nil), do: []
   defp nil_to_empty_array(x), do: x
 
   def get_aggregates(components) do
-    components
-    |> Enum.filter(fn x -> x["type"] == "event" end)
-    |> Enum.map(fn event -> event["aggregate"] end)
-    |> Enum.uniq()
-  end
+    (Enum.uniq_by(Enum.filter(components, fn comp -> comp["type"] == "aggregate" end), fn x -> x["name"] end ))
+   end
 
   defp aggregate_height(i), do: (8 + 1.5 * i) * @height_unit
 
   defp event_height(event_component, aggregates) do
-    Enum.find_index(aggregates, fn x -> x == event_component["aggregate"] end)
+    IO.inspect aggregates
+    Enum.find_index(aggregates, fn x -> x["name"] == event_component["aggregate"] end)
     |> aggregate_height
   end
 
@@ -281,7 +554,8 @@ defmodule FlowitWeb.CanvasLive do
             <h1 class="text-3xl font-bold">Generate Flows</h1>
           </div>
           <div class="py-40">
-            <%= case @flow do %><%= nil -> %><%= _ -> %><%= flow_page(%{flow: @flow, aggregates: get_aggregates(@flow["components"]), myheight: 100}) %><%end %>
+            <%= case @flow do %><%= nil -> %><%= _ -> %>
+            <%= flow_page(%{flow: @flow, aggregates: get_aggregates(@flow["components"]), myheight: 100}) %><%end %>
           </div>
         </div>
         <div class="text-xs text-center lg:hidden">
@@ -292,7 +566,7 @@ defmodule FlowitWeb.CanvasLive do
       <div class="drawer-side">
         <ul class="menu p-4 overflow-y-auto w-80 bg-base-300 text-base-content">
             <%= if @flow do  %>
-          	<h2 class="text-2xl mb-5"><%= @flow["name"] |> String.capitalize() %> </h2>
+          	<h2 class="text-2xl mb-5"><%= @flow["name"] |> Macro.camelize() %> </h2>
 
             <%= add_component_modal_button(%{flow: @flow}, "Add View ", "btn-info btn-solid") %><%= add_component_modal_button(%{flow: @flow}, "Add Command", "btn-error") %>
             <%= add_component_modal_button(%{flow: @flow}, "Add Event", "btn-warning") %>
@@ -369,13 +643,16 @@ defmodule FlowitWeb.CanvasLive do
     <%= add_component_modal(%{flow: @flow}, "Add Processer", "add_processer", fn x -> processer_custom_form_content(x) end, "btn-secondary" ) %>
 
     <div class="px-10 prose">
-    <%= for {aggregate,i} <- Enum.with_index(@aggregates) do %>
-    <div style={"position: absolute; top: #{aggregate_height(i)}px"} >
-    <h3 class="text-2xl font-bold"> <%= aggregate %> </h3>
-    <div class="divider w-screen"></div>
-    </div>
-    <% end %>
+    <%= for {aggregate,i} <-
+
+    Enum.with_index(Enum.uniq_by(Enum.filter(@flow["components"], fn comp -> comp["type"] == "aggregate" end), fn x -> x["name"] end )) do %>
+     <div style={"position: absolute; top: #{aggregate_height(i)}px"} >
+     <h3 class="text-2xl font-bold"> <%= Macro.camelize(aggregate["name"]) %> </h3>
+     <div class="divider w-screen"></div>
+     </div>
+     <% end %>
      <div>
+
 
     <%= for {component,i} <- Enum.with_index(@flow["components"]) do %>
     <%=  case component["type"] do %>
@@ -407,7 +684,7 @@ defmodule FlowitWeb.CanvasLive do
     <%= (component["name"]) %>
     </div>
 
-    <%= _ -> %> <div class="btn btn-info" style={"position: absolute; top: #{(5)*@myheight}px; left: (i + 2)*@myheightpx"} > hei </div>
+    <%= _ -> %>
     <% end %>
     <% end %>
 
@@ -530,4 +807,313 @@ defmodule FlowitWeb.CanvasLive do
 
     """
   end
+
+
+  defp generate_base(id, app_name) do
+        File.write!("#{id}/flowit_scaffold/base/eventstore_db_client.ex", """
+        defmodule FlowitScaffold.EventStoreDbClient do
+          use Spear.Client,
+            otp_app: :#{Macro.underscore(app_name)}
+        end
+        """)
+
+        File.write!("#{id}/flowit_scaffold/base/command_dispatcher.ex", """
+			defprotocol FlowitScaffold.CommandDispatcher do
+        	def dispatch(command)
+			end
+        """)
+
+
+        File.write!("#{id}/flowit_scaffold/base/helpers.ex", """
+			defmodule FlowitScaffold.Helpers do
+
+        def map_spear_event_to_domain_event(%Spear.Event{body: body, type: type, metadata: md} = spear_event) do
+          try do
+            ## this will give duplicated
+            nil = spear_event.link
+            body = Jason.decode!(body, keys: :atoms)
+            IO.puts("event type is")
+            IO.inspect(Macro.camelize(type))
+
+            {("Elixir.FlowitScaffold.Event." <> Macro.camelize(type))
+             |> String.to_existing_atom()
+             |> struct(body), md}
+          rescue
+            e -> {%{}, md}
+          end
+        end
+
+        def map_spear_event_to_domain_event(_event), do: {%{}, %{}}
+
+        end
+        """)
+  end
+
+
+  defp generate_supervisor(id, comps) do
+    IO.inspect length(comps)
+    read_models =
+    Enum.filter(comps, fn comps-> comps["type"] == "read_model" end)
+    |> IO.inspect
+    |> Enum.map(fn rm ->
+      """
+      	FlowitScaffold.ReadModel.#{Macro.camelize(rm["name"])},
+      """
+
+      end)
+      IO.puts "read models are"
+    IO.inspect read_models
+
+        File.write!("#{id}/flowit_scaffold/base/supervisor.ex", """
+
+      defmodule FlowitScaffold.Supervisor do
+        use Supervisor
+
+        def start_link(init_arg) do
+          Supervisor.start_link(__MODULE__, init_arg, name: __MODULE__)
+        end
+
+        @impl true
+        def init(_init_arg) do
+          children = [
+      			{Phoenix.PubSub, name: FlowitScaffold.PubSub},
+      			FlowitScaffold.EventStoreDbClient,
+      			{DynamicSupervisor, strategy: :one_for_one, name: FlowitScaffold.AggregateSupervisor},
+      			{Registry, keys: :unique, name: FlowitScaffold.AggregateRegistry},
+      			#{read_models}
+          ]
+          Supervisor.init(children, strategy: :one_for_one)
+        end
+      end
+      """
+      )
+
+  end
+
+  defp generate_read_model_macro(id) do
+          File.write!("#{id}/flowit_scaffold/base/read_model_macro.ex", """
+defmodule FlowitScaffold.ReadModel do
+  defmacro __using__(opts) do
+    quote do
+      use GenServer
+      require Logger
+
+      def subscribe(id) do
+        Phoenix.PubSub.subscribe(FlowitScaffold.PubSub, to_string(__MODULE__) <> ":" <> id)
+      end
+
+      def subscribe_to_all() do
+        Phoenix.PubSub.subscribe(FlowitScaffold.PubSub, to_string(__MODULE__))
+      end
+
+      def broadcast(id, state) do
+        Phoenix.PubSub.broadcast(FlowitScaffold.PubSub, to_string(__MODULE__) <> ":" <> id, {__MODULE__, id, state})
+      end
+
+      def broadcast_to_all(id, state) do
+        Phoenix.PubSub.broadcast(FlowitScaffold.PubSub, to_string(__MODULE__), {__MODULE__, id, state})
+      end
+
+      def start_link(args) do
+        GenServer.start_link(__MODULE__, [], name: __MODULE__)
+      end
+
+      def init([]) do
+        :ets.new(__MODULE__, [:set, :named_table, :public])
+        :dets.open_file(__MODULE__, [])
+        last_event = get_last_event()
+        {:ok, sub} = subscribe_all(:start)
+        {:ok, %{}}
+      end
+
+      def get(id) do
+        :ets.lookup(__MODULE__, id)
+        |> case do
+          [] -> nil
+          [{_id, data}] -> data
+        end
+      end
+
+      def get_all() do
+        :ets.tab2list(__MODULE__)
+        |> Enum.filter(fn {key, elem} -> String.contains?(key, "bookmark") == false end)
+        |> Enum.map(fn {key, elem} -> elem end)
+      end
+
+      def get_bookmark(stream_name) do
+        :ets.lookup(__MODULE__, "bookmark:\#{inspect stream_name}")
+        |> case do
+          [{_id, number}] ->
+            number
+
+          [] ->
+            :dets.lookup(__MODULE__, "bookmark:\#{inspect stream_name}")
+            |> case do
+              [] ->
+                nil
+
+              [{_id, number}] ->
+                :ets.insert(__MODULE__, {"bookmark:\#{inspect stream_name}", number})
+                number
+            end
+        end
+      end
+
+      def get_last_event(), do: :start
+
+      def set(id, data, stream) do
+        :ets.insert(__MODULE__, {id, data})
+      end
+
+      def select(fun) do
+        :ets.select(__MODULE__, fun)
+      end
+
+      def update_read_model_and_bookmark(rm_id, rm_data, metadata),
+        do: update_read_model_and_bookmark(rm_id, rm_data, metadata.stream_name, metadata.stream_revision)
+
+      def update_read_model_and_bookmark(rm_id, rm_data, stream_name, revision) do
+        :ets.insert(__MODULE__, [{rm_id, rm_data}, {"bookmark:\#{inspect stream_name}", revision}])
+        broadcast(rm_id, rm_data)
+        broadcast_to_all(rm_id,rm_data)
+        :ok
+      end
+
+      def update_bookmark(metadata) do
+        true = :ets.insert(__MODULE__, [{"bookmark:\#{inspect metadata.stream_name}", metadata.stream_revision}])
+        :ok
+      end
+
+      defp subscribe_all(from),
+        do:
+          Spear.subscribe(FlowitScaffold.EventStoreDbClient, self(), :all,
+            from: from,
+            filter: Spear.Filter.exclude_system_events()
+          )
+
+      def handle_info(%Spear.Event{} = event, _state) do
+
+        get_bookmark(event.metadata.stream_name)
+        |> case do
+          nil when event.metadata.stream_revision == 0 -> 0
+          x when x + 1 == event.metadata.stream_revision -> x + 1
+          x when x == event.metadata.stream_revision -> :already_handled
+          x -> raise "bookmark is \#{x} and stream revision is \#{event.metadata.stream_revision} out of order"
+        end
+        |> case do
+          :already_handled ->
+            {:noreply, _state}
+
+          new_revision ->
+            {domain_event, metadata} = FlowitScaffold.Helpers.map_spear_event_to_domain_event(event)
+            :ok = handle_event({domain_event, metadata})
+            ## send event revision as a
+        end
+
+        {:noreply, _state}
+      end
+
+      def handle_info(_, state), do: {:noreply, state}
+    end
+  end
+end
+
+"""
+)
+
+end
+
+
+
+  defp generate_aggregate_macro(id) do
+          File.write!("#{id}/flowit_scaffold/base/aggregate_macro.ex", """
+
+defmodule FlowitScaffold.Aggregate do
+  defmacro __using__(opts) do
+    quote do
+      use GenServer
+      require Logger
+
+      def start_link(args) do
+        [stream_id: stream_id, name: name] = args
+
+        cond do
+          stream_id == "" ->
+            {:error, "stream_id cant be empty"}
+
+          stream_id == nil ->
+            {:error, "stream_id cant be empty"}
+
+          true ->
+            GenServer.start_link(__MODULE__, ["\#{__MODULE__}:stream_id"],
+              name: name
+            )
+        end
+      end
+
+      def execute(command) do
+        {:ok, pid} = find_or_start_aggregate_agent(command.stream_id)
+        GenServer.call(pid, {:execute, command})
+      end
+
+      def init([stream_id]) do
+        GenServer.cast(self(), :finish_init)
+        {:ok, {stream_id, nil, 0}}
+      end
+
+      def handle_cast(:finish_init, {stream_id, nil, 0}) do
+        {:ok, events} = Spear.read_stream(FlowitScaffold.EventStoreDbClient, stream_id, max_count: 99999)
+
+        domain_events =
+          Enum.map(events, fn event ->
+            {domain_event, _} = FlowitScaffold.Helpers.map_spear_event_to_domain_event(event)
+            domain_event
+          end)
+
+        state =
+          Enum.reduce(domain_events, nil, fn domain_event, state ->
+            apply_event(state, domain_event)
+          end)
+
+        {:noreply, {stream_id, state, length(domain_events)}}
+      end
+
+      def handle_call(
+            {:execute, command},
+            _from,
+            {stream_id, state, event_nr}
+          ) do
+        with {:ok, event} <- execute(command, state),
+             _ <- IO.inspect(event),
+             spear_event <-
+               Spear.Event.new("\#{(event.__struct__)}", Jason.encode!(event)),
+             :ok <- Spear.append([spear_event], FlowitScaffold.EventStoreDbClient, stream_id, expect: event_nr - 1) do
+          new_state = apply_event(state, event)
+          {:reply, :ok, {stream_id, new_state, event_nr + 1}}
+        else
+          err ->
+            Logger.error("Something went wrong writing event \#{inspect(err)}")
+            {:reply, err, {stream_id, state, event_nr}}
+        end
+      end
+
+      def find_or_start_aggregate_agent(stream_id) do
+        Registry.lookup(FlowitScaffold.AggregateRegistry, stream_id)
+        |> case do
+          [{pid, _}] ->
+            {:ok, pid}
+
+          [] ->
+            spec = {__MODULE__, stream_id: stream_id, name: {:via, Registry, {FlowitScaffold.AggregateRegistry, stream_id}}}
+            DynamicSupervisor.start_child(FlowitScaffold.AggregateSupervisor, spec)
+        end
+      end
+    end
+  end
+end
+""")
+
+
+
+end
 end
