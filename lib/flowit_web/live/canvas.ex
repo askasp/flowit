@@ -6,13 +6,9 @@ defmodule FlowitWeb.CanvasLive do
   # the line below would be: use MyAppWeb, :live_view
   use FlowitWeb, :live_view
 
-
-
-
-
   def mount(_params, %{}, socket) do
     res = Agent.start(fn -> %{} end, name: :flow_reg)
-    flows = Agent.get(:flow_reg, fn x -> x end)
+    # flows = Agent.get(:flow_reg, fn x -> x end)
     flows = %{}
 
     {:ok,
@@ -32,7 +28,6 @@ defmodule FlowitWeb.CanvasLive do
 
   def handle_params(_params, _uri, socket), do: {:noreply, socket}
 
-
   def handle_event("generate_counter_flow", _, socket) do
     {_, socket} = handle_event("create_flow", %{"flowname" => "counter_flow"}, socket)
     socket = assign(socket, flow: socket.assigns.flows["counter_flow"])
@@ -42,21 +37,26 @@ defmodule FlowitWeb.CanvasLive do
     id = socket.assigns.flow["components"] |> Enum.at(1) |> Map.get("gui_id")
     {_, socket} = handle_event("add_event", %{"event" => "incremented", "dispatched_by_id" => id, "event_params" => "", "aggregate" => "counter_aggregate"}, socket)
     id = socket.assigns.flow["components"] |> Enum.at(2) |> Map.get("gui_id")
-    {_, socket} = handle_event("add_read_model", %{"read_model" => "counters", "dispatched_by_id" => id}, socket)
-
+    {_, socket} = handle_event("add_read_model", %{"read_model" => "counters", "dispatched_by_id" => id, "read_model_params" => "count"}, socket)
 
     id = socket.assigns.flow["components"] |> Enum.at(4) |> Map.get("gui_id")
     {_, socket} = handle_event("add_view", %{"name" => "counter_view", "dispatched_by_id" => id}, socket)
     {_, socket} = handle_event("generate_files", %{"app_name" => "FlowitTest"}, socket)
-
     {:noreply, socket}
-
   end
-
 
   def handle_event("set_flow", %{"flow" => flow}, socket) do
     {:noreply, push_patch(socket, to: "/flows/#{flow}")}
   end
+
+  def handle_event("load_flow", %{"flows" => flows}, socket) do
+    flows = Jason.decode!(flows)
+    flows_base = flows["base"]
+    file_overrides = flows["file_overrides"]
+    new_flows = Map.merge(socket.assigns.flows, flows_base)
+    {:noreply, assign(socket, flows: new_flows, file_overrides: file_overrides)}
+  end
+
 
   def handle_event("create_flow", %{"flowname" => flowname}, socket) do
     # This is sent when  I press close on set flow modal, It should not.. but this works for now
@@ -187,7 +187,7 @@ defmodule FlowitWeb.CanvasLive do
   @impl true
   def handle_event(
         "add_read_model",
-        %{"read_model" => read_model, "dispatched_by_id" => dispatched_by_id},
+        %{"read_model" => read_model, "dispatched_by_id" => dispatched_by_id, "read_model_params" => read_model_params},
         socket
       ) do
     dispatched_by_component =
@@ -202,6 +202,7 @@ defmodule FlowitWeb.CanvasLive do
         "name" => read_model,
         "dispatched_by_component" => [dispatched_by_component],
         "dispatched_by_id" => dispatched_by_id,
+        "read_model_params" => read_model_params,
         "gui_id" => UUID.uuid1()
       }
     ]
@@ -246,16 +247,6 @@ defmodule FlowitWeb.CanvasLive do
             Map.put(acc, component["name"], component)
 
           x ->
-            IO.puts "prining a round"
-            IO.inspect x["name"]
-            IO.inspect x["type"]
-            IO.inspect x["dispatched_by_component"]
-
-            IO.inspect "component is"
-            IO.inspect component["dispatched_by_component"]
-            IO.inspect component
-
-
             disp_by_name = nil_to_empty_array(x["dispatched_by_component"]) ++ component["dispatched_by_component"]
            		new_comp = Map.put(component, "dispatched_by_component", disp_by_name)
            		new_comp = case component["type"] do
@@ -296,22 +287,25 @@ defmodule FlowitWeb.CanvasLive do
     IO.inspect("components with dispatched by me")
     IO.inspect(components_with_dispatched)
 
-    id = UUID.uuid1()
+    base_id = UUID.uuid1()
+    id = "/home/ask/delme/flowit_generators/#{base_id}"
 
-    res = File.mkdir_p("#{id}/flowit_scaffold")
-    res = File.mkdir_p("#{id}/flowit_scaffold/views")
-    res = File.mkdir_p("#{id}/flowit_scaffold/commands")
-    res = File.mkdir_p("#{id}/flowit_scaffold/events")
-    res = File.mkdir_p("#{id}/flowit_scaffold/aggregates")
-    res = File.mkdir_p("#{id}/flowit_scaffold/read_models")
-    res = File.mkdir_p("#{id}/flowit_scaffold/processes")
-    res = File.mkdir_p("#{id}/flowit_scaffold/base")
+    System.cmd("cp", ["-rf", "base", "#{id}"])
 
+    res = File.mkdir_p("#{id}/lib/flowit_scaffold")
+    res = File.mkdir_p("#{id}/lib/flowit_scaffold/views")
+    res = File.mkdir_p("#{id}/lib/flowit_scaffold/commands")
+    res = File.mkdir_p("#{id}/lib/flowit_scaffold/events")
+    res = File.mkdir_p("#{id}/lib/flowit_scaffold/aggregates")
+    res = File.mkdir_p("#{id}/lib/flowit_scaffold/read_models")
+    res = File.mkdir_p("#{id}/lib/flowit_scaffold/processes")
+    res = File.mkdir_p("#{id}/lib/flowit_scaffold/base")
+
+		File.write!("#{id}/lib/flowit_scaffold/flow.json", Jason.encode!(%{"base" => socket.assigns.flows}))
     generate_base(id, app_name)
     generate_aggregate_macro(id)
     generate_read_model_macro(id)
     generate_supervisor(id, Map.values(components_with_dispatched))
-
 
     components_with_dispatched
     |> Map.values()
@@ -330,18 +324,20 @@ defmodule FlowitWeb.CanvasLive do
       end
     end)
 
-    res = System.cmd("zip", ["-r", "priv/static/boilerplates/#{id}.zip", "#{id}/flowit_scaffold/"])
+		rest =  System.cmd("sh", ["./rename_script.sh", "#{id}", app_name, Macro.underscore(app_name)])
+    res = System.cmd("zip", ["-r", "priv/static/boilerplates/#{id}.zip", "#{id}/"])
 
-    System.cmd("cp", ["-rf", "#{id}/flowit_scaffold", "/home/ask/delme/flowit_test/lib/"])
-    System.cmd("rm", ["-rf", "#{id}"])
+    # System.cmd("cp", ["-rf", "#{id}/flowit_scaffold", "/home/ask/delme/flowit_test/lib/"])
+    # System.cmd("rm", ["-rf", "#{id}"])
     # File.cp_r("#{id}/flowit_scaffold/*", "/home/ask/delme/flowit_test/lib/flowit_scaffold/")
     # File.cp_
-    {:noreply, socket |> redirect(to: "/boilerplates/#{id}.zip")}
+    {:noreply, socket |> redirect(to: "/boilerplates/#{base_id}.zip")}
   end
 
 
 
 	defp generate_read_model_file(app_name, id, file_name, comp) do
+      		read_model_params= comp["read_model_params"] |> String.split(" ") |> Enum.map(fn x -> String.to_atom(x) end) |> Enum.filter(fn x ->  x != :"" end)
 
             events =
             	comp["dispatched_by_component"]
@@ -356,9 +352,12 @@ defmodule FlowitWeb.CanvasLive do
 
     						"""
     						end)
-          File.write!("#{id}/flowit_scaffold/read_models/#{file_name}.ex", """
+          File.write!("#{id}/lib/flowit_scaffold/read_models/#{file_name}.ex", """
           defmodule FlowitScaffold.ReadModel.#{Macro.camelize(file_name)} do
             use FlowitScaffold.ReadModel
+
+					@derive Jason.Encoder
+           defstruct #{inspect(read_model_params)}
 
             #{events}
 
@@ -379,7 +378,7 @@ defmodule FlowitWeb.CanvasLive do
             0 -> [:stream_id]
             _ -> [:stream_id | event_params]
           end
-          File.write!("#{id}/flowit_scaffold/events/#{file_name}.ex", """
+          File.write!("#{id}/lib/flowit_scaffold/events/#{file_name}.ex", """
           defmodule FlowitScaffold.Event.#{Macro.camelize(file_name)} do
             @derive Jason.Encoder
            defstruct #{inspect(params)}
@@ -413,7 +412,7 @@ defmodule FlowitWeb.CanvasLive do
 
           end)
 
-          File.write!("#{id}/flowit_scaffold/aggregates/#{file_name}.ex", """
+          File.write!("#{id}/lib/flowit_scaffold/aggregates/#{file_name}.ex", """
           defmodule FlowitScaffold.Aggregate.#{Macro.camelize(file_name)} do
             use FlowitScaffold.Aggregate
             alias FlowitScaffold.Event
@@ -439,7 +438,7 @@ defmodule FlowitWeb.CanvasLive do
           end
 
          
-          File.write!("#{id}/flowit_scaffold/commands/#{file_name}.ex", """
+          File.write!("#{id}/lib/flowit_scaffold/commands/#{file_name}.ex", """
           defmodule FlowitScaffold.Command.#{Macro.camelize(file_name)} do
             @derive Jason.Encoder
            defstruct #{inspect(params)}
@@ -473,8 +472,9 @@ defmodule FlowitWeb.CanvasLive do
             |> Enum.map(fn rm_name ->
               """
               def handle_info({FlowitScaffold.ReadModel.#{Macro.camelize(rm_name)}, id, state}, socket ) do
-               new_read_model_state= Map.put(socket.assigns["#{rm_name}"], id, state)
-                socket = assign(socket, "#{rm_name}", new_read_model_state)
+              	#{rm_name} = FlowitScaffold.ReadModel.#{Macro.camelize(rm_name)}.get_all()
+
+                socket = assign(socket, #{rm_name}: #{rm_name} )
                 {:noreply, socket}
               end
 
@@ -517,7 +517,7 @@ defmodule FlowitWeb.CanvasLive do
               """
               end)
 
-          File.write!("#{id}/flowit_scaffold/views/#{file_name}.ex", """
+          File.write!("#{id}/lib/flowit_scaffold/views/#{file_name}.ex", """
           defmodule FlowitScaffold.View.#{Macro.camelize(file_name)} do
             use #{app_name}Web, :live_view
 
@@ -534,8 +534,9 @@ defmodule FlowitWeb.CanvasLive do
               ~H\"""
               <h1 class="text-2xl"> #{Macro.camelize(file_name)} </h1>
 
-              #{subscribing_read_models_data}
 
+              #{subscribing_read_models_data}
+              <br/>
 
               #{dispatching_commands_ui}
               \"""
@@ -608,11 +609,14 @@ defmodule FlowitWeb.CanvasLive do
                 <%= for flow <- Map.keys(@flows) do %>
                 	<li> <%= link flow, to: "/flows/#{flow}" %></li>
                 <%end %>
-                <div class="flex justify-center">
-                <label for="my-modal-3" class=" btn btn-primary modal-button btn-circle  text-2xl ">+</label>
+                <div class="flex justify-around">
+                <label for="my-modal-3" class=" btn btn-primary modal-button btn-sm ">Create new </label>
+                <label for="my-modal-4" class=" btn btn-primary modal-button btn-sm">Load </label>
                 </div>
               </ul>
             </div>
+
+
             		<button phx-click="generate_counter_flow" class="mt-2 btn btn-neutral"> Generate counter flow</button>
             <form phx-submit="generate_files" class="mt-20">
             	<div class="form-control">
@@ -658,6 +662,25 @@ defmodule FlowitWeb.CanvasLive do
         </form>
       </div>
     </div>
+
+
+    <input type="checkbox" id="my-modal-4" class="modal-toggle">
+    <div class="modal">
+      <div class="modal-box relative">
+        <h3 class="text-lg font-bold">Load flows</h3>
+        <form phx-submit="load_flow">
+          <div class="form-control">
+            <label class="label"><span class=
+            "label-text">Flow json </span></label> <input name="flows" type="textarea" placeholder="[]" class="input input-bordered">
+          </div>
+          <div class="modal-action">
+            <label for="my-modal-4" class="btn">Cancel</label>
+            <button for="my-modal-4" type="submit" class="btn btn-primary">Load </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
 
 
     """
@@ -788,6 +811,9 @@ defmodule FlowitWeb.CanvasLive do
         read_model </span></label> <input name="read_model"
         type="text" placeholder="payments" class=
         "input input-bordered">
+
+    <label class="label"><span class=
+    "label-text">read model params, space separated </span></label> <input name="read_model_params" type="text"  placeholder="count" class="input input-bordered">
         </div>
     """
   end
@@ -810,6 +836,7 @@ defmodule FlowitWeb.CanvasLive do
     <label class="label"><span class=
     "label-text">Command</span></label> <input name="command"
     type="text" placeholder="pay" class= "input input-bordered">
+
     <label class="label"><span class=
     "label-text">Command params, space separated </span></label> <input name="command_params" type="text"  placeholder="amount reciever recipient" class="input input-bordered">
     </div>
@@ -838,22 +865,24 @@ defmodule FlowitWeb.CanvasLive do
   end
 
 
+
+
   defp generate_base(id, app_name) do
-        File.write!("#{id}/flowit_scaffold/base/eventstore_db_client.ex", """
+        File.write!("#{id}/lib/flowit_scaffold/base/eventstore_db_client.ex", """
         defmodule FlowitScaffold.EventStoreDbClient do
           use Spear.Client,
             otp_app: :#{Macro.underscore(app_name)}
         end
         """)
 
-        File.write!("#{id}/flowit_scaffold/base/command_dispatcher.ex", """
+        File.write!("#{id}/lib/flowit_scaffold/base/command_dispatcher.ex", """
 			defprotocol FlowitScaffold.CommandDispatcher do
         	def dispatch(command)
 			end
         """)
 
 
-        File.write!("#{id}/flowit_scaffold/base/helpers.ex", """
+        File.write!("#{id}/lib/flowit_scaffold/base/helpers.ex", """
 			defmodule FlowitScaffold.Helpers do
 
         def map_spear_event_to_domain_event(%Spear.Event{body: body, type: type, metadata: md} = spear_event) do
@@ -893,7 +922,7 @@ defmodule FlowitWeb.CanvasLive do
       IO.puts "read models are"
     IO.inspect read_models
 
-        File.write!("#{id}/flowit_scaffold/base/supervisor.ex", """
+        File.write!("#{id}/lib/flowit_scaffold/base/supervisor.ex", """
 
       defmodule FlowitScaffold.Supervisor do
         use Supervisor
@@ -920,7 +949,7 @@ defmodule FlowitWeb.CanvasLive do
   end
 
   defp generate_read_model_macro(id) do
-          File.write!("#{id}/flowit_scaffold/base/read_model_macro.ex", """
+          File.write!("#{id}/lib/flowit_scaffold/base/read_model_macro.ex", """
 defmodule FlowitScaffold.ReadModel do
   defmacro __using__(opts) do
     quote do
@@ -959,7 +988,7 @@ defmodule FlowitScaffold.ReadModel do
       def get(id) do
         :ets.lookup(__MODULE__, id)
         |> case do
-          [] -> nil
+          [] -> struct(__MODULE__)
           [{_id, data}] -> data
         end
       end
@@ -1056,7 +1085,7 @@ end
 
 
   defp generate_aggregate_macro(id) do
-          File.write!("#{id}/flowit_scaffold/base/aggregate_macro.ex", """
+          File.write!("#{id}/lib/flowit_scaffold/base/aggregate_macro.ex", """
 
 defmodule FlowitScaffold.Aggregate do
   defmacro __using__(opts) do
