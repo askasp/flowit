@@ -6,9 +6,14 @@ defmodule FlowitWeb.CanvasLive do
   # the line below would be: use MyAppWeb, :live_view
   use FlowitWeb, :live_view
 
+
+
+
+
   def mount(_params, %{}, socket) do
     res = Agent.start(fn -> %{} end, name: :flow_reg)
     flows = Agent.get(:flow_reg, fn x -> x end)
+    flows = %{}
 
     {:ok,
      assign(socket,
@@ -26,6 +31,28 @@ defmodule FlowitWeb.CanvasLive do
   end
 
   def handle_params(_params, _uri, socket), do: {:noreply, socket}
+
+
+  def handle_event("generate_counter_flow", _, socket) do
+    {_, socket} = handle_event("create_flow", %{"flowname" => "counter_flow"}, socket)
+    socket = assign(socket, flow: socket.assigns.flows["counter_flow"])
+    {_, socket} = handle_event("add_view", %{"name" => "counter_view", "dispatched_by_id" => nil}, socket)
+    id = socket.assigns.flow["components"] |> Enum.at(0) |> Map.get("gui_id")
+    {_, socket} = handle_event("add_command", %{"command" => "increment", "dispatched_by_id" => id, "command_params" => ""}, socket)
+    id = socket.assigns.flow["components"] |> Enum.at(1) |> Map.get("gui_id")
+    {_, socket} = handle_event("add_event", %{"event" => "incremented", "dispatched_by_id" => id, "event_params" => "", "aggregate" => "counter_aggregate"}, socket)
+    id = socket.assigns.flow["components"] |> Enum.at(2) |> Map.get("gui_id")
+    {_, socket} = handle_event("add_read_model", %{"read_model" => "counters", "dispatched_by_id" => id}, socket)
+
+
+    id = socket.assigns.flow["components"] |> Enum.at(4) |> Map.get("gui_id")
+    {_, socket} = handle_event("add_view", %{"name" => "counter_view", "dispatched_by_id" => id}, socket)
+    {_, socket} = handle_event("generate_files", %{"app_name" => "FlowitTest"}, socket)
+
+    {:noreply, socket}
+
+  end
+
 
   def handle_event("set_flow", %{"flow" => flow}, socket) do
     {:noreply, push_patch(socket, to: "/flows/#{flow}")}
@@ -306,6 +333,7 @@ defmodule FlowitWeb.CanvasLive do
     res = System.cmd("zip", ["-r", "priv/static/boilerplates/#{id}.zip", "#{id}/flowit_scaffold/"])
 
     System.cmd("cp", ["-rf", "#{id}/flowit_scaffold", "/home/ask/delme/flowit_test/lib/"])
+    System.cmd("rm", ["-rf", "#{id}"])
     # File.cp_r("#{id}/flowit_scaffold/*", "/home/ask/delme/flowit_test/lib/flowit_scaffold/")
     # File.cp_
     {:noreply, socket |> redirect(to: "/boilerplates/#{id}.zip")}
@@ -444,7 +472,7 @@ defmodule FlowitWeb.CanvasLive do
             |> Enum.map(fn x -> x["name"] end)
             |> Enum.map(fn rm_name ->
               """
-              def handle_info({"Elixir.FlowitScaffold.ReadModel.#{Macro.camelize(rm_name)}", id, state}, socket ) do
+              def handle_info({FlowitScaffold.ReadModel.#{Macro.camelize(rm_name)}, id, state}, socket ) do
                new_read_model_state= Map.put(socket.assigns["#{rm_name}"], id, state)
                 socket = assign(socket, "#{rm_name}", new_read_model_state)
                 {:noreply, socket}
@@ -585,6 +613,7 @@ defmodule FlowitWeb.CanvasLive do
                 </div>
               </ul>
             </div>
+            		<button phx-click="generate_counter_flow" class="mt-2 btn btn-neutral"> Generate counter flow</button>
             <form phx-submit="generate_files" class="mt-20">
             	<div class="form-control">
         				<label class="label"><span class="label-text">Your app name </span></label> <input name="app_name" type="text" placeholder="myApp" class= "input input-bordered">
@@ -835,7 +864,7 @@ defmodule FlowitWeb.CanvasLive do
             IO.puts("event type is")
             IO.inspect(Macro.camelize(type))
 
-            {("Elixir.FlowitScaffold.Event." <> Macro.camelize(type))
+            {Macro.camelize(type)
              |> String.to_existing_atom()
              |> struct(body), md}
           rescue
@@ -920,7 +949,8 @@ defmodule FlowitScaffold.ReadModel do
 
       def init([]) do
         :ets.new(__MODULE__, [:set, :named_table, :public])
-        :dets.open_file(__MODULE__, [])
+        # File.mkdir("dets_storage")
+        # :dets.open_file("dets_storage/#{__MODULE__}", [])
         last_event = get_last_event()
         {:ok, sub} = subscribe_all(:start)
         {:ok, %{}}
@@ -946,16 +976,16 @@ defmodule FlowitScaffold.ReadModel do
           [{_id, number}] ->
             number
 
-          [] ->
-            :dets.lookup(__MODULE__, "bookmark:\#{inspect stream_name}")
-            |> case do
-              [] ->
-                nil
+          [] -> nil
+            # :dets.lookup(__MODULE__, "bookmark:\#{inspect stream_name}")
+            # |> case do
+            #   [] ->
+            #     nil
 
-              [{_id, number}] ->
-                :ets.insert(__MODULE__, {"bookmark:\#{inspect stream_name}", number})
-                number
-            end
+            #   [{_id, number}] ->
+            #     :ets.insert(__MODULE__, {"bookmark:\#{inspect stream_name}", number})
+            #     number
+            # end
         end
       end
 
@@ -1045,7 +1075,7 @@ defmodule FlowitScaffold.Aggregate do
             {:error, "stream_id cant be empty"}
 
           true ->
-            GenServer.start_link(__MODULE__, ["\#{__MODULE__}:stream_id"],
+            GenServer.start_link(__MODULE__, [to_string(__MODULE__)<>":" <> stream_id],
               name: name
             )
         end
