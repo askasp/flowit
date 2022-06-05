@@ -14,6 +14,7 @@ defmodule Flowit.Application do
       {Phoenix.PubSub, name: Flowit.PubSub},
       # Start the Endpoint (http/https)
       FlowitWeb.Endpoint
+
       # Start a worker by calling: Flowit.Worker.start_link(arg)
       # {Flowit.Worker, arg}
     ]

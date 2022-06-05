@@ -1,0 +1,96 @@
+{
+  "base": {
+    "user_auth_flow": {
+      "components": [
+                
+        {
+          "dispatched_by_component": [
+            {
+              "name": null,
+              "type": null
+            }
+          ],
+          "dispatched_by_id": "None",
+          "gui_id": "e070de52-c881-11ec-8b20-103d1ce81890",
+          "name": "session_view",
+          "type": "view"
+        },
+              
+
+        {
+          "command_params": "email email_is_available",
+          "dispatched_by_component": [
+            {
+              "name": "session_view",
+              "type": "view"
+            }
+          ],
+          "dispatched_by_id": "e070de52-c881-11ec-8b20-103d1ce81890",
+          "gui_id": "e070dee2-c881-11ec-8b20-103d1ce81890",
+          "name": "add_user",
+          "type": "command"
+        },
+        {
+          "aggregate": "user_aggregate",
+          "dispatched_by_component": [
+            {
+              "name": "add_user",
+              "type": "command"
+            }
+          ],
+          "dispatched_by_id": "e070dee2-c881-11ec-8b20-103d1ce81890",
+          "event_params": "email",
+          "gui_id": "e7155016-c881-11ec-8c95-103d1ce81890",
+          "name": "user_added",
+          "type": "event"
+        },
+        {
+          "dispatched_by_component": [
+            {
+              "aggregate": "user_aggregate",
+              "dispatched_by_component": [
+                {
+                  "name": "add_user",
+                  "type": "command"
+                }
+              ],
+              "dispatched_by_id": "e070dee2-c881-11ec-8b20-103d1ce81890",
+              "event_params": "email",
+              "gui_id": "e7155016-c881-11ec-8c95-103d1ce81890",
+              "name": "user_added",
+              "type": "event"
+            }
+          ],
+          "name": "user_aggregate",
+          "type": "aggregate"
+        },
+        {
+          "dispatched_by_component": [
+            {
+              "name": "user_added",
+              "type": "event"
+            }
+          ],
+          "dispatched_by_id": "e7155016-c881-11ec-8c95-103d1ce81890",
+          "gui_id": "fc143090-c881-11ec-83c3-103d1ce81890",
+          "name": "users",
+          "read_model_params": "id email",
+          "type": "read_model"
+        }
+      ],
+      "name": "user_auth_flow"
+    }
+  },
+  "overrides": [
+    {"from": "one_click_flows/user_auth/add_user.ex", "to": "lib/flowit/commands/add_user.ex"},
+    {"from": "one_click_flows/user_auth/user_added.ex", "to": "lib/flowit/events/user_added.ex"},
+    {"from": "one_click_flows/user_auth/user_aggregate.ex", "to": "lib/flowit/aggregates/user_aggregate.ex"},
+    {"from": "one_click_flows/user_auth/user_read_model.ex", "to": "lib/flowit/read_models/user_read_model.ex"},
+    {"from": "one_click_flows/user_auth/session_new.html.eex", "to": "lib/flowit/views/session_new.html.eex"},
+    {"from": "one_click_flows/user_auth/oauth_controller.ex", "to": "lib/flowit_web/controllers/oauth_controller.ex"},
+    {"from": "one_click_flows/user_auth/auth.ex", "to": "lib/flowit_web/auth.ex"},
+    {"from": "one_click_flows/user_auth/router.ex", "to": "lib/flowit_web/router.ex"},
+    {"from": "one_click_flows/user_auth/root.html.heex", "to": "lib/flowit_web/templates/layout/root.html.heex"},
+    {"from": "one_click_flows/user_auth/session_controller.ex", "to": "lib/flowit_web/controllers/session_controller.ex"},
+    {"from": "one_click_flows/user_auth/session_view.ex", "to": "lib/flowit_web/views/session_views.ex"}
+  ]}
